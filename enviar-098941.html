@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Envío de tableros — PBA Costa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef1f4;--panel:#ffffff;--ink:#16202b;--muted:#5d6b78;--line:#d6dde4;
+  --wa:#1f9d55;--wa-ink:#ffffff;--field:#f6f8fa;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171d;--panel:#1b222b;--ink:#e8edf2;--muted:#94a3b1;--line:#2c3643;--field:#141a21;--wa:#25a861;
+}}
+:root[data-theme="dark"]{--bg:#12171d;--panel:#1b222b;--ink:#e8edf2;--muted:#94a3b1;--line:#2c3643;--field:#141a21;--wa:#25a861}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{background:var(--bg);color:var(--ink);font-family:'Barlow',-apple-system,'Segoe UI',Roboto,sans-serif;font-size:15px;line-height:1.4}
+.wrap{max-width:640px;margin:0 auto;padding:20px 16px 120px}
+h1{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:30px;line-height:1.05;font-weight:700;letter-spacing:.2px}
+.lead{color:var(--muted);margin-top:6px;font-size:14px}
+section{margin-top:22px}
+h2{font-size:15px;font-weight:600;margin-bottom:8px}
+.bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.link-btn{background:none;border:none;color:var(--wa);font:inherit;font-weight:600;cursor:pointer;padding:6px 0}
+.list{display:flex;flex-direction:column;gap:8px}
+.td{background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:10px;padding:12px 12px 12px 10px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center}
+.td input[type=checkbox]{width:24px;height:24px;accent-color:var(--wa);grid-row:span 2}
+.td .name{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:19px;font-weight:700}
+.td .phone{grid-column:2;width:100%;background:var(--field);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font:inherit;font-size:14px;color:var(--ink)}
+.td .phone::placeholder{color:var(--muted)}
+textarea{width:100%;min-height:92px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;color:var(--ink);resize:vertical}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(--wa);outline-offset:2px}
+.dock{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+.dock-in{max-width:640px;margin:0 auto;display:flex;gap:8px}
+.btn{flex:1;border:none;border-radius:10px;padding:14px;font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+.btn-wa{background:var(--wa);color:var(--wa-ink)}
+.btn-alt{background:var(--field);color:var(--ink);border:1px solid var(--line);flex:0 0 auto;padding:14px 16px}
+.btn:disabled{opacity:.45;cursor:default}
+#queue{display:none}
+#queue.open{display:block}
+.q{display:flex;flex-direction:column;gap:8px}
+.q a{display:flex;align-items:center;gap:10px;text-decoration:none;background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:10px;padding:14px 12px;color:var(--ink);font-weight:600}
+.q a .go{margin-left:auto;background:var(--wa);color:#fff;border-radius:8px;padding:7px 12px;font-size:14px}
+.q a.sent{opacity:.55}
+.q a.sent .go{background:var(--muted)}
+.toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Envío de tableros SO</h1>
+  <p class="lead">Tildá los distribuidores y mandale a cada uno su link por WhatsApp.</p>
+
+  <section>
+    <div class="bar"><h2>Distribuidores</h2><button class="link-btn" id="all">Seleccionar todos</button></div>
+    <div class="list" id="list"></div>
+    <p class="hint">El número es opcional. Si lo dejás vacío, WhatsApp te deja elegir el contacto. Formato: 549 + característica + número (ej. 5492494123456). Se guarda en este teléfono.</p>
+  </section>
+
+  <section>
+    <h2>Mensaje</h2>
+    <textarea id="msg"></textarea>
+    <p class="hint">{td} se reemplaza por el nombre del distribuidor y {link} por su link.</p>
+  </section>
+
+  <section id="queue">
+    <h2>Listo para enviar</h2>
+    <p class="hint" style="margin:-4px 0 10px">WhatsApp abre un chat por vez: tocá cada uno y dale enviar.</p>
+    <div class="q" id="q"></div>
+  </section>
+</div>
+
+<div class="dock"><div class="dock-in">
+  <button class="btn btn-alt" id="copy" disabled>Copiar</button>
+  <button class="btn btn-wa" id="prep" disabled>Preparar envío</button>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+var TDS=[
+  {id:"dicva",name:"DICVA S.R.L.",c:"#4a9eff",url:"https://gmonteshelbling-coder.github.io/so-pba-costa/dicva-1bc9e2.html"},
+  {id:"fseca",name:"FUENTE SECA S.R.L.",c:"#ff7043",url:"https://gmonteshelbling-coder.github.io/so-pba-costa/fuente-seca-97e396.html"},
+  {id:"sgd",name:"SGD SAN GREGORIO",c:"#4caf50",url:"https://gmonteshelbling-coder.github.io/so-pba-costa/sgd-san-gregorio-4b8738.html"},
+  {id:"sgdc",name:"SGD SAN GREGORIO – COSTA",c:"#00897b",url:"https://gmonteshelbling-coder.github.io/so-pba-costa/sgd-costa-a12a74.html"},
+  {id:"kra",name:"KRA & MAR S.A.",c:"#9c27b0",url:"https://gmonteshelbling-coder.github.io/so-pba-costa/kra-mar-1a5bc4.html"},
+  {id:"terra",name:"TERRAMARE DEL SUR S.R.L.",c:"#ff9800",url:"https://gmonteshelbling-coder.github.io/so-pba-costa/terramare-df7a94.html"},
+  {id:"costa",name:"DISTRIBUIDORA COSTA ATLÁNTICA",c:"#00bcd4",url:"https://gmonteshelbling-coder.github.io/so-pba-costa/costa-atlantica-8f13dd.html"}
+];
+var DEF_MSG="Hola! Te paso el tablero de Sell Out 2025 vs 2026 de {td}, actualizado a agosto:\n{link}";
+
+function load(k,d){try{var v=localStorage.getItem(k);return v===null?d:v;}catch(e){return d;}}
+function save(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+
+var list=document.getElementById("list"),msg=document.getElementById("msg");
+msg.value=load("pba_msg",DEF_MSG);
+msg.addEventListener("input",function(){save("pba_msg",msg.value);closeQueue();});
+
+TDS.forEach(function(t){
+  var row=document.createElement("label");
+  row.className="td";row.style.setProperty("--c",t.c);
+  row.innerHTML='<input type="checkbox" data-id="'+t.id+'"><span class="name">'+t.name+'</span>'+
+    '<input class="phone" type="tel" inputmode="numeric" placeholder="Número de WhatsApp (opcional)" data-ph="'+t.id+'">';
+  list.appendChild(row);
+  var ph=row.querySelector(".phone");
+  ph.value=load("pba_ph_"+t.id,"");
+  ph.addEventListener("input",function(){save("pba_ph_"+t.id,ph.value);closeQueue();});
+  ph.addEventListener("click",function(e){e.preventDefault();ph.focus();});
+  row.querySelector("input[type=checkbox]").addEventListener("change",update);
+});
+
+function selected(){
+  return TDS.filter(function(t){return document.querySelector('input[data-id="'+t.id+'"]').checked;});
+}
+function text(t){return msg.value.split("{td}").join(t.name).split("{link}").join(t.url);}
+function phone(t){return (document.querySelector('[data-ph="'+t.id+'"]').value||"").replace(/\D/g,"");}
+
+function update(){
+  var n=selected().length;
+  document.getElementById("prep").disabled=!n;
+  document.getElementById("copy").disabled=!n;
+  document.getElementById("prep").textContent=n?"Preparar envío ("+n+")":"Preparar envío";
+  document.getElementById("all").textContent=n===TDS.length?"Quitar todos":"Seleccionar todos";
+  closeQueue();
+}
+document.getElementById("all").addEventListener("click",function(){
+  var on=selected().length!==TDS.length;
+  TDS.forEach(function(t){document.querySelector('input[data-id="'+t.id+'"]').checked=on;});
+  update();
+});
+
+function closeQueue(){document.getElementById("queue").classList.remove("open");}
+
+document.getElementById("prep").addEventListener("click",function(){
+  var q=document.getElementById("q");q.innerHTML="";
+  selected().forEach(function(t){
+    var a=document.createElement("a");
+    var p=phone(t);
+    a.href="https://wa.me/"+(p||"")+"?text="+encodeURIComponent(text(t));
+    a.target="_blank";a.rel="noopener";a.style.setProperty("--c",t.c);
+    a.innerHTML='<span>'+t.name+'</span><span class="go">Enviar</span>';
+    a.addEventListener("click",function(){
+      setTimeout(function(){a.classList.add("sent");a.querySelector(".go").textContent="Enviado";},300);
+    });
+    q.appendChild(a);
+  });
+  var qs=document.getElementById("queue");qs.classList.add("open");
+  qs.scrollIntoView({behavior:"smooth",block:"start"});
+});
+
+document.getElementById("copy").addEventListener("click",function(){
+  var all=selected().map(text).join("\n\n");
+  var done=function(){toast("Mensajes copiados. Pegalos en el chat o grupo.");};
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(all).then(done,function(){fallback(all);done();});
+  }else{fallback(all);done();}
+});
+function fallback(s){var t=document.createElement("textarea");t.value=s;document.body.appendChild(t);t.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(t);}
+function toast(s){var el=document.getElementById("toast");el.textContent=s;el.classList.add("show");setTimeout(function(){el.classList.remove("show");},2200);}
+</script>
+</body>
+</html>
